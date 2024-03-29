@@ -9,18 +9,23 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 class ChainBuilder<T>(
-	private var isParallel: Boolean = false
+	private val isParallel: Boolean = false
 ) {
 	private var blockOn: T.() -> Boolean = { true }
-	private val _workers: MutableList<ICorExec<T>> = mutableListOf()
+	private val executors: MutableList<IBaseExecutor<T>> = mutableListOf()
 
+	private var blockAgain: T.() -> Boolean = { false }
 
-	private fun add(worker: ICorExec<T>) {
-		_workers.add(worker)
+	private fun add(executor: IBaseExecutor<T>) {
+		executors.add(executor)
 	}
 
 	fun on(block: T.() -> Boolean) {
 		blockOn = block
+	}
+
+	fun again(block: T.() -> Boolean) {
+		blockAgain = block
 	}
 
 	fun worker(function: WorkerBuilder<T>.() -> Unit) {
@@ -44,8 +49,9 @@ class ChainBuilder<T>(
 	fun build(): Chain<T> {
 		return Chain(
 			on = blockOn,
-			workers = _workers.toList(),
-			isParallel = isParallel
+			workers = executors.toList(),
+			isParallel = isParallel,
+			again = blockAgain
 		)
 	}
 }
@@ -56,26 +62,32 @@ fun <T> rootChain(block: ChainBuilder<T>.() -> Unit): Chain<T> {
 
 class Chain<T>(
 	val on: T.() -> Boolean = { true },
-	val workers: List<ICorExec<T>> = emptyList(),
-	val isParallel: Boolean = false
-) : ICorExec<T> {
+	val workers: List<IBaseExecutor<T>> = emptyList(),
+	val isParallel: Boolean = false,
+	val again: T.() -> Boolean = { true },
+) : IBaseExecutor<T> {
 
 	override suspend fun execute(context: T) {
 		if (on(context)) {
 			if (!isParallel) {
-				workers.forEach {
-					it.execute(context)
-				}
+				val startTime = getSysSec()
+				do {
+					workers.forEach {
+						it.execute(context)
+					}
+				} while (again(context) && (getSysSec() - startTime < 3))
 			} else {
 				coroutineScope {
-					workers.map {
+					val jobs = workers.map {
 						launch { it.execute(context) }
-					}.joinAll()
+					}
+					jobs.joinAll()
 				}
-
 			}
 		}
 	}
+
+	private fun getSysSec() = System.currentTimeMillis() / 1000
 
 }
 
@@ -86,18 +98,35 @@ fun main(): Unit = runBlocking {
 		chain {
 			w1()
 			w2()
+			again { i < 3 }
 		}
 
-		parallel {
-			on { true }
-			w2()
-			w1()
-			exec {
-				i += 7
-			}
-		}
+//		parallel {
+//			on { true }
+//			w2()
+//			w1()
+//			exec {
+//				i += 7
+//			}
+//		}
 
 	}.execute(context = ctx)
 
 	println(ctx.i)
+
+//	coroutineScope {
+//		var i = 0
+//		val j1 = launch {
+//			repeat(1000000) {
+//				i++
+//			}
+//		}
+//		val j2 = launch {
+//			repeat(1000000) {
+//				i++
+//			}
+//		}
+//		joinAll(j1, j2)
+//		println(i)
+//	}
 }

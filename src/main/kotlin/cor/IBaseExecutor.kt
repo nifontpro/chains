@@ -1,5 +1,5 @@
 package cor
 
-interface ICorExec<T> {
+interface IBaseExecutor<T> {
 	suspend fun execute(context: T)
 }

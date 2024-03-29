@@ -1,8 +1,8 @@
 package cor
 
 class WorkerBuilder<T> {
-	var blockRun: T.() -> Unit = {}
 	private var blockOn: T.() -> Boolean = { true }
+	var blockRun: T.() -> Unit = {}
 
 	fun on(block: T.() -> Boolean) {
 		blockOn = block
@@ -20,10 +20,9 @@ class WorkerBuilder<T> {
 class Worker<T>(
 	val on: T.() -> Boolean,
 	val runBlock: T.() -> Unit,
-) : ICorExec<T> {
+) : IBaseExecutor<T> {
 
 	override suspend fun execute(context: T) {
-
 		if (on(context)) {
 			runBlock(context)
 		}
