@@ -1,18 +1,18 @@
-package cor
+package chains
 
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 class Chain<T>(
-	val on: T.() -> Boolean = { true },
+	val blockOn: suspend T.() -> Boolean = { true },
 	val executors: List<IBaseExecutor<T>> = emptyList(),
 	val isParallel: Boolean = false,
-	val repeatIf: T.() -> Boolean = { true },
+	val repeatIf: suspend T.() -> Boolean = { true },
 ) : IBaseExecutor<T> {
 
 	override suspend fun execute(context: T) {
-		if (on(context)) {
+		if (blockOn(context)) {
 			if (!isParallel) {
 				looper(context) {
 					executors.forEach {
@@ -32,16 +32,10 @@ class Chain<T>(
 		}
 	}
 
-	private suspend fun looper(context: T, function: suspend () -> Unit) {
-		val startTime = System.currentTimeMillis()
+	private suspend inline fun looper(context: T, function: () -> Unit) {
 		do {
 			function()
-		} while (repeatIf(context) && (System.currentTimeMillis() - startTime < MAX_LOOP_MS))
-	}
-
-	companion object {
-		// Максимально допустимое время задержки в цикле loop
-		private const val MAX_LOOP_MS = 3000
+		} while (repeatIf(context))
 	}
 
 }

@@ -1,6 +1,6 @@
-package cor.workers
+package workers
 
-import cor.ChainBuilder
+import chains.ChainBuilder
 
 fun ChainBuilder<Context>.w2() = worker {
 	exec {

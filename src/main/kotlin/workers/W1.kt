@@ -1,12 +1,14 @@
-package cor.workers
+package workers
 
-import cor.ChainBuilder
+import chains.ChainBuilder
 
 fun ChainBuilder<Context>.w1() = worker {
-	runIf { true }
+
+	on { true }
+
 	exec {
 		i += 3
-		throw Exception("EXC")
+//		throw Exception("EXC")
 	}
 
 	except {

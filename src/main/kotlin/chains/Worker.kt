@@ -1,17 +1,17 @@
-package cor
+package chains
 
 class Worker<T>(
-	val on: T.() -> Boolean,
-	val runBlock: T.() -> Unit,
+	val blockOn: T.() -> Boolean,
+	val blockExec: T.() -> Unit,
 	val blockExcept: T.(Exception) -> Unit,
 ) : IBaseExecutor<T> {
 
 	override suspend fun execute(context: T) {
-		if (context.on()) {
+		if (blockOn(context)) {
 			try {
-				runBlock(context)
+				blockExec(context)
 			} catch (e: Exception) {
-				context.blockExcept(e)
+				blockExcept(context, e)
 			}
 		}
 	}
